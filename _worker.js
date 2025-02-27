@@ -65,8 +65,9 @@ export default {
         ],
       });
       const userData = username ? await kv.get(`user:${username}`) : null;
+      const parsedForm = JSON.parse(formStructure);
       const responseData = {
-        form: JSON.parse(formStructure),
+        form: parsedForm.form && parsedForm.form.fields ? parsedForm.form : parsedForm, // 提取最内层 form 或直接使用
         info: userData ? JSON.parse(userData).info : {},
         lastUpdated: userData ? JSON.parse(userData).lastUpdated : null
       };
