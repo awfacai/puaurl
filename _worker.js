@@ -3,28 +3,36 @@ export default {
     const url = new URL(request.url);
     const kv = env.USER_DATA;
 
+    // 定义 CORS 头部
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
     // 处理 CORS 预检请求
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+        headers: corsHeaders,
       });
     }
+
+    // 创建带 CORS 的响应函数
+    const createResponse = (body, status = 200) => {
+      return new Response(body, {
+        status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    };
 
     // 后台登录
     if (url.pathname === '/admin/login' && request.method === 'POST') {
       const { username, password } = await request.json();
       if (username === env.ADMIN_USERNAME && password === env.ADMIN_PASSWORD) {
-        return new Response('OK', {
-          status: 200,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-        });
+        return createResponse('OK');
       }
-      return new Response('Unauthorized', { status: 401 });
+      return createResponse('Unauthorized', 401);
     }
 
     // 用户登录
@@ -34,12 +42,10 @@ export default {
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         if (userData.password === password) {
-          return new Response(JSON.stringify({ success: true }), {
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          });
+          return createResponse(JSON.stringify({ success: true }));
         }
       }
-      return new Response('Invalid credentials', { status: 401 });
+      return createResponse('Invalid credentials', 401);
     }
 
     // 获取表格结构和用户信息
@@ -64,16 +70,14 @@ export default {
         info: userData ? JSON.parse(userData).info : {},
         lastUpdated: userData ? JSON.parse(userData).lastUpdated : null
       };
-      return new Response(JSON.stringify(responseData), {
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
+      return createResponse(JSON.stringify(responseData));
     }
 
     // 保存用户信息并发送 Telegram 通知
     if (url.pathname === '/save' && request.method === 'POST') {
       const { username, data } = await request.json();
       const storedUser = await kv.get(`user:${username}`);
-      if (!storedUser) return new Response('User not found', { status: 404 });
+      if (!storedUser) return createResponse('User not found', 404);
       const userData = JSON.parse(storedUser);
       userData.info = data;
       userData.lastUpdated = new Date().toISOString();
@@ -95,56 +99,56 @@ export default {
         });
       }
 
-      return new Response('Submitted', { status: 200 });
+      return createResponse('Submitted');
     }
 
     // 后台：获取所有用户信息
     if (url.pathname === '/admin/users' && request.method === 'GET') {
       const authHeader = request.headers.get('Authorization');
-      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
+      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
       const users = [];
       const list = await kv.list({ prefix: 'user:' });
       for (const key of list.keys) {
         const userData = await kv.get(key.name);
         users.push(JSON.parse(userData));
       }
-      return new Response(JSON.stringify(users), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      return createResponse(JSON.stringify(users));
     }
 
     // 后台：生成新用户
     if (url.pathname === '/admin/create-user' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
-      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
+      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
       const { username, password } = await request.json();
       await kv.put(`user:${username}`, JSON.stringify({ username, password, info: {}, lastUpdated: null }));
-      return new Response('User created', { status: 200 });
+      return createResponse('User created');
     }
 
     // 后台：设置表格结构
     if (url.pathname === '/admin/set-form' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
-      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
+      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
       const formData = await request.json();
       await kv.put('form:structure', JSON.stringify(formData));
-      return new Response('Form updated', { status: 200 });
+      return createResponse('Form updated');
     }
 
     // 后台：更新公告
     if (url.pathname === '/admin/update-announcements' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
-      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
+      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
       const announcements = await request.json();
       await kv.put('announcements', JSON.stringify(announcements));
-      return new Response('Announcements updated', { status: 200 });
+      return createResponse('Announcements updated');
     }
 
     // 获取公告
     if (url.pathname === '/announcements' && request.method === 'GET') {
       const announcements = await kv.get('announcements') || '[]';
-      return new Response(announcements, { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      return createResponse(announcements);
     }
 
-    // 静态文件处理（由 Pages 处理）
+    // 静态文件处理
     return fetch(request);
   },
 };
