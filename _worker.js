@@ -16,7 +16,7 @@ export default {
     }
 
     // 后台登录
-    if (url.pathname === '/api/admin/login' && request.method === 'POST') {
+    if (url.pathname === '/admin/login' && request.method === 'POST') {
       const { username, password } = await request.json();
       if (username === env.ADMIN_USERNAME && password === env.ADMIN_PASSWORD) {
         return new Response('OK', {
@@ -28,7 +28,7 @@ export default {
     }
 
     // 用户登录
-    if (url.pathname === '/api/login' && request.method === 'POST') {
+    if (url.pathname === '/login' && request.method === 'POST') {
       const { username, password } = await request.json();
       const storedUser = await kv.get(`user:${username}`);
       if (storedUser) {
@@ -43,7 +43,7 @@ export default {
     }
 
     // 获取表格结构和用户信息
-    if (url.pathname === '/api/form' && request.method === 'GET') {
+    if (url.pathname === '/form' && request.method === 'GET') {
       const username = url.searchParams.get('username');
       const formStructure = await kv.get('form:structure') || JSON.stringify({
         name: '域名信息登记',
@@ -60,7 +60,7 @@ export default {
       });
       const userData = username ? await kv.get(`user:${username}`) : null;
       const responseData = {
-        form: JSON.parse(formStructure), // 确保只有一层 form
+        form: JSON.parse(formStructure),
         info: userData ? JSON.parse(userData).info : {},
         lastUpdated: userData ? JSON.parse(userData).lastUpdated : null
       };
@@ -70,7 +70,7 @@ export default {
     }
 
     // 保存用户信息并发送 Telegram 通知
-    if (url.pathname === '/api/save' && request.method === 'POST') {
+    if (url.pathname === '/save' && request.method === 'POST') {
       const { username, data } = await request.json();
       const storedUser = await kv.get(`user:${username}`);
       if (!storedUser) return new Response('User not found', { status: 404 });
@@ -99,7 +99,7 @@ export default {
     }
 
     // 后台：获取所有用户信息
-    if (url.pathname === '/api/admin/users' && request.method === 'GET') {
+    if (url.pathname === '/admin/users' && request.method === 'GET') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
       const users = [];
@@ -112,7 +112,7 @@ export default {
     }
 
     // 后台：生成新用户
-    if (url.pathname === '/api/admin/create-user' && request.method === 'POST') {
+    if (url.pathname === '/admin/create-user' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
       const { username, password } = await request.json();
@@ -121,7 +121,7 @@ export default {
     }
 
     // 后台：设置表格结构
-    if (url.pathname === '/api/admin/set-form' && request.method === 'POST') {
+    if (url.pathname === '/admin/set-form' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
       const formData = await request.json();
@@ -130,7 +130,7 @@ export default {
     }
 
     // 后台：更新公告
-    if (url.pathname === '/api/admin/update-announcements' && request.method === 'POST') {
+    if (url.pathname === '/admin/update-announcements' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return new Response('Unauthorized', { status: 401 });
       const announcements = await request.json();
@@ -139,11 +139,12 @@ export default {
     }
 
     // 获取公告
-    if (url.pathname === '/api/announcements' && request.method === 'GET') {
+    if (url.pathname === '/announcements' && request.method === 'GET') {
       const announcements = await kv.get('announcements') || '[]';
       return new Response(announcements, { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
     }
 
-    return new Response('Not Found', { status: 404 });
+    // 静态文件处理（由 Pages 处理）
+    return fetch(request);
   },
 };
