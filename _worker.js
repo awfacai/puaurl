@@ -59,12 +59,12 @@ export default {
         ],
       });
       const userData = username ? await kv.get(`user:${username}`) : null;
-      const response = {
-        form: JSON.parse(formStructure),
+      const responseData = {
+        form: JSON.parse(formStructure), // 确保只有一层 form
         info: userData ? JSON.parse(userData).info : {},
         lastUpdated: userData ? JSON.parse(userData).lastUpdated : null
       };
-      return new Response(JSON.stringify(response), {
+      return new Response(JSON.stringify(responseData), {
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
