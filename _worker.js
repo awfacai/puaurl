@@ -48,7 +48,7 @@ export default {
       return createResponse('Invalid credentials', 401);
     }
 
-    // 获取表格结构和用户信息
+    // 获取表格结构和用户信息（前端不返回 note）
     if (url.pathname === '/form' && request.method === 'GET') {
       const username = url.searchParams.get('username');
       const formStructure = await kv.get('form:structure') || JSON.stringify({
@@ -67,20 +67,20 @@ export default {
       const userData = username ? await kv.get(`user:${username}`) : null;
       const parsedForm = JSON.parse(formStructure);
       const responseData = {
-        form: parsedForm.form && parsedForm.form.fields ? parsedForm.form : parsedForm, // 提取最内层 form 或直接使用
+        form: parsedForm.form && parsedForm.form.fields ? parsedForm.form : parsedForm,
         info: userData ? JSON.parse(userData).info : {},
         lastUpdated: userData ? JSON.parse(userData).lastUpdated : null
       };
       return createResponse(JSON.stringify(responseData));
     }
 
-    // 保存用户信息并发送 Telegram 通知
+    // 保存用户信息并发送 Telegram 通知（不修改 note）
     if (url.pathname === '/save' && request.method === 'POST') {
       const { username, data } = await request.json();
       const storedUser = await kv.get(`user:${username}`);
       if (!storedUser) return createResponse('User not found', 404);
       const userData = JSON.parse(storedUser);
-      userData.info = data;
+      userData.info = data; // 只更新 info，不影响 note
       userData.lastUpdated = new Date().toISOString();
       await kv.put(`user:${username}`, JSON.stringify(userData));
 
@@ -103,7 +103,7 @@ export default {
       return createResponse('Submitted');
     }
 
-    // 后台：获取所有用户信息
+    // 后台：获取所有用户信息（包含 note）
     if (url.pathname === '/admin/users' && request.method === 'GET') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
@@ -116,12 +116,18 @@ export default {
       return createResponse(JSON.stringify(users));
     }
 
-    // 后台：生成新用户
+    // 后台：生成新用户（添加 note 字段）
     if (url.pathname === '/admin/create-user' && request.method === 'POST') {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
       const { username, password } = await request.json();
-      await kv.put(`user:${username}`, JSON.stringify({ username, password, info: {}, lastUpdated: null }));
+      await kv.put(`user:${username}`, JSON.stringify({ 
+        username, 
+        password, 
+        info: {}, 
+        lastUpdated: null, 
+        note: '' // 初始化备注为空
+      }));
       return createResponse('User created');
     }
 
@@ -141,6 +147,19 @@ export default {
       const announcements = await request.json();
       await kv.put('announcements', JSON.stringify(announcements));
       return createResponse('Announcements updated');
+    }
+
+    // 后台：更新用户备注
+    if (url.pathname === '/admin/update-note' && request.method === 'POST') {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader !== `${env.ADMIN_USERNAME}:${env.ADMIN_PASSWORD}`) return createResponse('Unauthorized', 401);
+      const { username, note } = await request.json();
+      const storedUser = await kv.get(`user:${username}`);
+      if (!storedUser) return createResponse('User not found', 404);
+      const userData = JSON.parse(storedUser);
+      userData.note = note; // 更新备注
+      await kv.put(`user:${username}`, JSON.stringify(userData));
+      return createResponse('Note updated');
     }
 
     // 获取公告
